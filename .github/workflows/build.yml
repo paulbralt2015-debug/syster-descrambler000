@@ -1,0 +1,36 @@
+name: Build Windows exe
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Dépendances Python
+        run: pip install -r requirements.txt pyinstaller
+      - name: Télécharger libmpv
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download -R shinchiro/mpv-winbuild-cmake -p "mpv-dev-x86_64-[0-9]*.7z" -O mpv-dev.7z
+          7z x mpv-dev.7z -ompvdev -y
+          ls mpvdev
+          cp "$(find mpvdev -name 'libmpv-2.dll' -o -name 'mpv-2.dll' | head -n1)" mpv-2.dll
+      - name: Construire l'exe
+        run: pyinstaller --onefile --windowed --name TwinsVideoPlayer2 --add-binary "mpv-2.dll;." --add-data "filters.py;." twins_player.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TwinsVideoPlayer2-windows
+          path: dist/TwinsVideoPlayer2.exe
+      - if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/TwinsVideoPlayer2.exe
